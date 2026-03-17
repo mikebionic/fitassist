@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS app_settings;
+DROP TABLE IF EXISTS sync_logs;
+DROP TABLE IF EXISTS ai_messages;
+DROP TABLE IF EXISTS ai_sessions;
+DROP TABLE IF EXISTS health_stress;
+DROP TABLE IF EXISTS health_workouts;
+DROP TABLE IF EXISTS health_spo2;
+DROP TABLE IF EXISTS health_heartrate;
+DROP TABLE IF EXISTS health_sleep;
+DROP TABLE IF EXISTS health_steps;
+DROP TABLE IF EXISTS telegram_chats;
+DROP TABLE IF EXISTS mifit_accounts;
+DROP TABLE IF EXISTS users;

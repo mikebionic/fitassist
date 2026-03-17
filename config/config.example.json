@@ -1,0 +1,44 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "mode": "development"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "fitassist",
+    "user": "fitassist",
+    "password": "changeme",
+    "ssl_mode": "disable",
+    "auto_migrate": true
+  },
+  "redis": {
+    "enabled": false,
+    "host": "localhost",
+    "port": 6379
+  },
+  "telegram": {
+    "enabled": false,
+    "bot_token": "",
+    "admin_chat_ids": []
+  },
+  "claude": {
+    "api_key": "",
+    "model": "claude-sonnet-4-5-20250929",
+    "max_tokens": 4096
+  },
+  "mifit": {
+    "sync_interval_minutes": 30,
+    "api_base_url": "https://api-mifit-de2.huami.com"
+  },
+  "security": {
+    "jwt_secret": "change-me-to-random-secret-at-least-32-chars",
+    "encryption_key": "",
+    "cors_origins": ["http://localhost:5173"]
+  },
+  "admin": {
+    "initial_username": "admin",
+    "initial_password": "admin123"
+  }
+}
