@@ -14,10 +14,16 @@ import (
 )
 
 type Server struct {
-	http   *http.Server
-	router chi.Router
-	cfg    *config.Config
-	db     *sqlx.DB
+	http        *http.Server
+	router      chi.Router
+	cfg         *config.Config
+	db          *sqlx.DB
+	syncService *service.SyncService
+}
+
+// SyncService returns the sync service for use by cron scheduler.
+func (s *Server) SyncService() *service.SyncService {
+	return s.syncService
 }
 
 func New(cfg *config.Config, db *sqlx.DB) *Server {
@@ -64,10 +70,16 @@ func (s *Server) setupRoutes() {
 	// Services
 	authService := service.NewAuthService(userRepo, s.cfg.Security)
 	healthService := service.NewHealthService(healthRepo)
+	syncService := service.NewSyncService(healthRepo, mifitRepo, syncLogRepo, s.cfg.MiFit.APIBaseURL, s.cfg.Security.EncryptionKey)
+	mifitService := service.NewMiFitService(mifitRepo, syncService, s.cfg.MiFit.APIBaseURL, s.cfg.Security.EncryptionKey)
+
+	// Store sync service for cron access
+	s.syncService = syncService
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	healthHandler := handler.NewHealthHandler(healthService)
+	mifitHandler := handler.NewMiFitHandler(mifitService)
 	adminHandler := handler.NewAdminHandler(userRepo, telegramRepo, syncLogRepo, mifitRepo)
 
 	// Create initial admin
@@ -109,9 +121,9 @@ func (s *Server) setupRoutes() {
 			r.Post("/ai/summary", handler.Placeholder)
 
 			// Mi Fitness
-			r.Post("/mifit/link", handler.Placeholder)
-			r.Post("/mifit/sync", handler.Placeholder)
-			r.Get("/mifit/status", handler.Placeholder)
+			r.Post("/mifit/link", mifitHandler.Link)
+			r.Post("/mifit/sync", mifitHandler.Sync)
+			r.Get("/mifit/status", mifitHandler.Status)
 
 			// User settings
 			r.Get("/settings/profile", handler.Placeholder)

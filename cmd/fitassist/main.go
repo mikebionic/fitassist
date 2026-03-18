@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/mike/fitassist/internal/config"
+	cronpkg "github.com/mike/fitassist/internal/cron"
 	"github.com/mike/fitassist/internal/database"
 	"github.com/mike/fitassist/internal/server"
 )
@@ -54,6 +55,15 @@ func main() {
 
 	srv := server.New(cfg, db)
 
+	// Start cron scheduler for Mi Fitness sync
+	var scheduler *cronpkg.Scheduler
+	if cfg.MiFit.SyncIntervalMinutes > 0 {
+		scheduler = cronpkg.NewScheduler(srv.SyncService())
+		if err := scheduler.Start(cfg.MiFit.SyncIntervalMinutes); err != nil {
+			slog.Error("failed to start cron scheduler", "error", err)
+		}
+	}
+
 	go func() {
 		addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 		slog.Info("HTTP server listening", "addr", addr)
@@ -65,6 +75,10 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("shutting down...")
+
+	if scheduler != nil {
+		scheduler.Stop()
+	}
 
 	if err := srv.Shutdown(context.Background()); err != nil {
 		slog.Error("shutdown error", "error", err)
