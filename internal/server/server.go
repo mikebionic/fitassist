@@ -14,16 +14,28 @@ import (
 )
 
 type Server struct {
-	http        *http.Server
-	router      chi.Router
-	cfg         *config.Config
-	db          *sqlx.DB
-	syncService *service.SyncService
+	http         *http.Server
+	router       chi.Router
+	cfg          *config.Config
+	db           *sqlx.DB
+	syncService  *service.SyncService
+	mifitService *service.MiFitService
+
+	// Exported repos for telegram bot
+	UserRepo     *repository.UserRepository
+	HealthRepo   *repository.HealthRepository
+	TelegramRepo *repository.TelegramRepository
+	MiFitRepo    *repository.MiFitRepository
 }
 
 // SyncService returns the sync service for use by cron scheduler.
 func (s *Server) SyncService() *service.SyncService {
 	return s.syncService
+}
+
+// MiFitService returns the MiFit service for use by telegram bot.
+func (s *Server) MiFitService() *service.MiFitService {
+	return s.mifitService
 }
 
 func New(cfg *config.Config, db *sqlx.DB) *Server {
@@ -73,8 +85,13 @@ func (s *Server) setupRoutes() {
 	syncService := service.NewSyncService(healthRepo, mifitRepo, syncLogRepo, s.cfg.MiFit.APIBaseURL, s.cfg.Security.EncryptionKey)
 	mifitService := service.NewMiFitService(mifitRepo, syncService, s.cfg.MiFit.APIBaseURL, s.cfg.Security.EncryptionKey)
 
-	// Store sync service for cron access
+	// Store services and repos for external access (telegram bot, cron)
 	s.syncService = syncService
+	s.mifitService = mifitService
+	s.UserRepo = userRepo
+	s.HealthRepo = healthRepo
+	s.TelegramRepo = telegramRepo
+	s.MiFitRepo = mifitRepo
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)

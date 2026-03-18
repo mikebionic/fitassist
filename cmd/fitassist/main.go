@@ -12,6 +12,7 @@ import (
 	cronpkg "github.com/mike/fitassist/internal/cron"
 	"github.com/mike/fitassist/internal/database"
 	"github.com/mike/fitassist/internal/server"
+	"github.com/mike/fitassist/internal/telegram"
 )
 
 func main() {
@@ -62,6 +63,25 @@ func main() {
 		if err := scheduler.Start(cfg.MiFit.SyncIntervalMinutes); err != nil {
 			slog.Error("failed to start cron scheduler", "error", err)
 		}
+	}
+
+	// Start Telegram bot
+	if cfg.Telegram.Enabled && cfg.Telegram.BotToken != "" {
+		tgBot := telegram.New(
+			cfg.Telegram,
+			srv.TelegramRepo,
+			srv.UserRepo,
+			srv.HealthRepo,
+			srv.MiFitRepo,
+			srv.MiFitService(),
+			srv.SyncService(),
+			cfg.Security.EncryptionKey,
+		)
+		go func() {
+			if err := tgBot.Start(ctx); err != nil {
+				slog.Error("telegram bot error", "error", err)
+			}
+		}()
 	}
 
 	go func() {
