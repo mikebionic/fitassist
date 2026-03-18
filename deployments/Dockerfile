@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.22-alpine AS backend
+FROM golang:1.25-alpine AS backend
 RUN apk add --no-cache git
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -17,13 +17,16 @@ COPY --from=frontend /app/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /fitassist ./cmd/fitassist
 
 # Stage 3: Runtime
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates tzdata postgresql16-client
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates tzdata postgresql16-client curl
 WORKDIR /app
 COPY --from=backend /fitassist .
 COPY --from=backend /app/migrations ./migrations
 COPY --from=backend /app/web/dist ./web/dist
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/api/health || exit 1
 
 CMD ["./fitassist"]

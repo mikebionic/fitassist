@@ -14,6 +14,8 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fitassist
 
   postgres:
     image: postgres:16-alpine
@@ -24,13 +26,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "${DB_PORT_EXPOSE:-5432}:5432"
+      - "${DB_PORT_EXPOSE:-127.0.0.1:5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fitassist}"]
       interval: 5s
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - fitassist
 
   redis:
     image: redis:7-alpine
@@ -38,8 +42,13 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "${REDIS_PORT_EXPOSE:-6379}:6379"
+      - "${REDIS_PORT_EXPOSE:-127.0.0.1:6379}:6379"
     restart: unless-stopped
+    networks:
+      - fitassist
+
+networks:
+  fitassist:
 
 volumes:
   pgdata:

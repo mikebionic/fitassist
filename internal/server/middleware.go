@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/mike/fitassist/internal/handler"
 )
 
 func (s *Server) setupMiddleware() {
@@ -17,6 +18,9 @@ func (s *Server) setupMiddleware() {
 	r.Use(slogMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
+
+	// Rate limiting: 120 requests/min per IP
+	r.Use(handler.RateLimitMiddleware(120))
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   s.cfg.Security.CORSOrigins,

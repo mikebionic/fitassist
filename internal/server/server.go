@@ -2,7 +2,11 @@ package server
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -109,8 +113,10 @@ func (s *Server) setupRoutes() {
 
 	r := s.router
 
-	// Serve frontend static files
-	fileServer := http.FileServer(http.Dir("web/dist"))
+	// Health check (public, no auth)
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		handler.WriteHealthCheck(w, s.db)
+	})
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
@@ -178,8 +184,41 @@ func (s *Server) setupRoutes() {
 		r.Get("/ws/ai/chat", aiHandler.WebSocketChat)
 	})
 
-	// Serve frontend for all non-API routes
-	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		fileServer.ServeHTTP(w, r)
-	})
+	// Serve frontend with SPA fallback (serves index.html for unknown routes)
+	spaHandler := spaFileServer("web/dist")
+	r.Get("/*", spaHandler)
+}
+
+// spaFileServer serves static files from dir, falling back to index.html
+// for any path that doesn't match a real file (SPA client-side routing).
+func spaFileServer(dir string) http.HandlerFunc {
+	fsys := http.Dir(dir)
+	fileServer := http.FileServer(fsys)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path == "/" {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if the file exists
+		cleanPath := filepath.Clean(strings.TrimPrefix(path, "/"))
+		fullPath := filepath.Join(dir, cleanPath)
+		if _, err := os.Stat(fullPath); err == nil {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if it's a directory with an index.html
+		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
+			if _, err := fs.Stat(os.DirFS(dir), filepath.Join(cleanPath, "index.html")); err == nil {
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Fallback: serve index.html for client-side routing
+		http.ServeFile(w, r, filepath.Join(dir, "index.html"))
+	}
 }
