@@ -76,6 +76,33 @@ export const mifitApi = {
   sync: () => api.post('/mifit/sync'),
 }
 
+// AI types
+export interface AISession {
+  id: string
+  user_id: string
+  title: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AIMessage {
+  id: number
+  session_id: string
+  role: 'user' | 'assistant'
+  content: string
+  tokens_used?: number
+  created_at: string
+}
+
+export const aiApi = {
+  listSessions: () => api.get<AISession[]>('/ai/sessions'),
+  createSession: (title: string) => api.post<AISession>('/ai/sessions', { title }),
+  getSession: (id: string) => api.get<{ session: AISession; messages: AIMessage[] }>(`/ai/sessions/${id}`),
+  deleteSession: (id: string) => api.delete(`/ai/sessions/${id}`),
+  sendMessage: (sessionId: string, message: string) => api.post<AIMessage>(`/ai/sessions/${sessionId}/messages`, { message }),
+  summary: () => api.post<{ summary: string }>('/ai/summary'),
+}
+
 export const adminApi = {
   users: (limit = 50, offset = 0) => api.get(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: any) => api.patch(`/admin/users/${id}`, data),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/mike/fitassist/internal/ai"
 	"github.com/mike/fitassist/internal/config"
 	"github.com/mike/fitassist/internal/repository"
 	"github.com/mike/fitassist/internal/service"
@@ -22,6 +23,7 @@ type Bot struct {
 	mifitRepo    *repository.MiFitRepository
 	mifitSvc     *service.MiFitService
 	syncSvc      *service.SyncService
+	aiClient     *ai.Client
 	encKey       string
 	linkSessions map[int64]*linkSession // chat_id -> session
 }
@@ -39,6 +41,7 @@ func New(
 	mifitRepo *repository.MiFitRepository,
 	mifitSvc *service.MiFitService,
 	syncSvc *service.SyncService,
+	aiClient *ai.Client,
 	encKey string,
 ) *Bot {
 	return &Bot{
@@ -49,6 +52,7 @@ func New(
 		mifitRepo:    mifitRepo,
 		mifitSvc:     mifitSvc,
 		syncSvc:      syncSvc,
+		aiClient:     aiClient,
 		encKey:       encKey,
 		linkSessions: make(map[int64]*linkSession),
 	}
@@ -74,6 +78,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/workout", bot.MatchTypePrefix, b.handleWorkout)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypePrefix, b.handleHelp)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/sync", bot.MatchTypePrefix, b.handleSync)
+	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/ai", bot.MatchTypePrefix, b.handleAI)
 
 	slog.Info("telegram bot started")
 	b.bot.Start(ctx)

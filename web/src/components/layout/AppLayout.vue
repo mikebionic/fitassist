@@ -17,6 +17,7 @@ const navItems = [
   { label: 'Sleep', icon: 'pi pi-moon', to: '/sleep' },
   { label: 'Heart Rate', icon: 'pi pi-heart', to: '/heartrate' },
   { label: 'Workouts', icon: 'pi pi-bolt', to: '/workouts' },
+  { label: 'AI Assistant', icon: 'pi pi-comments', to: '/ai' },
   { label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
 ]
 </script>

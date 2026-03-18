@@ -16,6 +16,7 @@ const (
 	CtxUserID   contextKey = "user_id"
 	CtxUsername  contextKey = "username"
 	CtxUserRole contextKey = "user_role"
+	ctxJWTSecret contextKey = "jwt_secret"
 )
 
 func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
@@ -78,4 +79,35 @@ func GetUserID(r *http.Request) string {
 		return v
 	}
 	return ""
+}
+
+// JWTSecretMiddleware injects the JWT secret into the request context
+// so WebSocket handlers can validate tokens without the auth middleware.
+func JWTSecretMiddleware(jwtSecret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), ctxJWTSecret, jwtSecret)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// parseJWTUserID extracts the user ID from a JWT token string.
+func parseJWTUserID(tokenStr, jwtSecret string) (string, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &service.Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(jwtSecret), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(*service.Claims)
+	if !ok || !token.Valid {
+		return "", fmt.Errorf("invalid token claims")
+	}
+
+	return claims.UserID, nil
 }

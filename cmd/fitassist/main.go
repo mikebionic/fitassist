@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/mike/fitassist/internal/ai"
 	"github.com/mike/fitassist/internal/config"
 	cronpkg "github.com/mike/fitassist/internal/cron"
 	"github.com/mike/fitassist/internal/database"
@@ -65,6 +66,13 @@ func main() {
 		}
 	}
 
+	// AI client (shared between HTTP handlers and Telegram bot)
+	var aiClient *ai.Client
+	if cfg.Claude.APIKey != "" {
+		aiClient = ai.NewClient(cfg.Claude)
+		slog.Info("AI assistant enabled", "model", cfg.Claude.Model)
+	}
+
 	// Start Telegram bot
 	if cfg.Telegram.Enabled && cfg.Telegram.BotToken != "" {
 		tgBot := telegram.New(
@@ -75,6 +83,7 @@ func main() {
 			srv.MiFitRepo,
 			srv.MiFitService(),
 			srv.SyncService(),
+			aiClient,
 			cfg.Security.EncryptionKey,
 		)
 		go func() {

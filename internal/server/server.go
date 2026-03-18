@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
+	"github.com/mike/fitassist/internal/ai"
 	"github.com/mike/fitassist/internal/config"
 	"github.com/mike/fitassist/internal/handler"
 	"github.com/mike/fitassist/internal/repository"
@@ -93,11 +94,15 @@ func (s *Server) setupRoutes() {
 	s.TelegramRepo = telegramRepo
 	s.MiFitRepo = mifitRepo
 
+	// AI client
+	claudeClient := ai.NewClient(s.cfg.Claude)
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	healthHandler := handler.NewHealthHandler(healthService)
 	mifitHandler := handler.NewMiFitHandler(mifitService)
 	adminHandler := handler.NewAdminHandler(userRepo, telegramRepo, syncLogRepo, mifitRepo)
+	aiHandler := handler.NewAIHandler(claudeClient, aiRepo, healthRepo)
 
 	// Create initial admin
 	go service.EnsureAdmin(context.Background(), userRepo, s.cfg.Admin)
@@ -133,9 +138,12 @@ func (s *Server) setupRoutes() {
 			r.Get("/health/stress", healthHandler.Stress)
 
 			// AI
-			r.Get("/ai/sessions", handler.Placeholder)
-			r.Post("/ai/sessions", handler.Placeholder)
-			r.Post("/ai/summary", handler.Placeholder)
+			r.Get("/ai/sessions", aiHandler.ListSessions)
+			r.Post("/ai/sessions", aiHandler.CreateSession)
+			r.Get("/ai/sessions/{id}", aiHandler.GetSession)
+			r.Delete("/ai/sessions/{id}", aiHandler.DeleteSession)
+			r.Post("/ai/sessions/{id}/messages", aiHandler.SendMessage)
+			r.Post("/ai/summary", aiHandler.Summary)
 
 			// Mi Fitness
 			r.Post("/mifit/link", mifitHandler.Link)
@@ -161,8 +169,13 @@ func (s *Server) setupRoutes() {
 			r.Get("/admin/export", adminHandler.Export)
 			r.Post("/admin/import", adminHandler.Import)
 
-			_ = aiRepo // will be used in phase 5
 		})
+	})
+
+	// WebSocket route (outside /api, with JWT secret in context for token validation)
+	r.Group(func(r chi.Router) {
+		r.Use(handler.JWTSecretMiddleware(s.cfg.Security.JWTSecret))
+		r.Get("/ws/ai/chat", aiHandler.WebSocketChat)
 	})
 
 	// Serve frontend for all non-API routes

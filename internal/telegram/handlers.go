@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/mike/fitassist/internal/ai"
 	"github.com/mike/fitassist/internal/model"
 	"github.com/mike/fitassist/internal/service"
 )
@@ -64,6 +65,7 @@ func (b *Bot) handleHelp(ctx context.Context, tgBot *bot.Bot, update *models.Upd
 /hr — Heart rate info
 /workout — Last workout
 /sync — Trigger data sync
+/ai &lt;question&gt; — Ask AI about your health
 /help — Show this help`)
 }
 
@@ -456,4 +458,44 @@ func (b *Bot) handleSync(ctx context.Context, tgBot *bot.Bot, update *models.Upd
 	}
 
 	b.send(ctx, chatID, "✅ Sync completed! Use /today to see your data.")
+}
+
+func (b *Bot) handleAI(ctx context.Context, tgBot *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
+	chatID := update.Message.Chat.ID
+	userID := b.getChatUserID(ctx, chatID)
+
+	if userID == "" {
+		b.send(ctx, chatID, "⚠️ Chat not approved or not linked to a user.")
+		return
+	}
+
+	if b.aiClient == nil {
+		b.send(ctx, chatID, "⚠️ AI assistant is not configured. Set the Claude API key in config.")
+		return
+	}
+
+	question := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, "/ai"))
+	if question == "" {
+		b.send(ctx, chatID, "Usage: /ai &lt;your question&gt;\n\nExample: /ai How was my sleep this week?")
+		return
+	}
+
+	b.send(ctx, chatID, "🤔 Thinking...")
+
+	healthCtx := ai.BuildHealthContext(ctx, b.healthRepo, userID)
+	systemPrompt := fmt.Sprintf(ai.SystemPromptTemplate, healthCtx)
+
+	response, _, err := b.aiClient.Chat(ctx, ai.ChatRequest{
+		SystemPrompt: systemPrompt,
+		UserMessage:  question,
+	})
+	if err != nil {
+		b.send(ctx, chatID, fmt.Sprintf("❌ AI error: %s", err.Error()))
+		return
+	}
+
+	b.send(ctx, chatID, response)
 }

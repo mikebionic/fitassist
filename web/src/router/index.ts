@@ -16,6 +16,7 @@ const routes = [
       { path: 'sleep', name: 'Sleep', component: () => import('../views/SleepView.vue') },
       { path: 'heartrate', name: 'HeartRate', component: () => import('../views/HeartRateView.vue') },
       { path: 'workouts', name: 'Workouts', component: () => import('../views/WorkoutsView.vue') },
+      { path: 'ai', name: 'AI Assistant', component: () => import('../views/AIAssistantView.vue') },
       { path: 'settings', name: 'Settings', component: () => import('../views/SettingsView.vue') },
       { path: 'admin', name: 'Admin', component: () => import('../views/AdminView.vue'), meta: { admin: true } },
     ],
