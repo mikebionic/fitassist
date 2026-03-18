@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -23,9 +24,10 @@ type Bot struct {
 	mifitRepo    *repository.MiFitRepository
 	mifitSvc     *service.MiFitService
 	syncSvc      *service.SyncService
-	aiClient     *ai.Client
-	encKey       string
-	linkSessions map[int64]*linkSession // chat_id -> session
+	aiClient       *ai.Client
+	encKey         string
+	linkMu         sync.Mutex
+	linkSessions   map[int64]*linkSession // chat_id -> session
 }
 
 type linkSession struct {

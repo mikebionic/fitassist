@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -66,8 +67,10 @@ func RateLimitMiddleware(requestsPerMinute int) func(http.Handler) http.Handler 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := r.RemoteAddr
-			if forwarded := r.Header.Get("X-Real-IP"); forwarded != "" {
-				ip = forwarded
+			if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+				ip = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+			} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+				ip = realIP
 			}
 
 			if !rl.allow(ip) {

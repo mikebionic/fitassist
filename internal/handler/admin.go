@@ -17,6 +17,7 @@ type AdminHandler struct {
 	telegramRepo *repository.TelegramRepository
 	syncLogRepo  *repository.SyncLogRepository
 	mifitRepo    *repository.MiFitRepository
+	dbDSN        string
 }
 
 func NewAdminHandler(
@@ -24,12 +25,14 @@ func NewAdminHandler(
 	telegramRepo *repository.TelegramRepository,
 	syncLogRepo *repository.SyncLogRepository,
 	mifitRepo *repository.MiFitRepository,
+	dbDSN string,
 ) *AdminHandler {
 	return &AdminHandler{
 		userRepo:     userRepo,
 		telegramRepo: telegramRepo,
 		syncLogRepo:  syncLogRepo,
 		mifitRepo:    mifitRepo,
+		dbDSN:        dbDSN,
 	}
 }
 
@@ -154,8 +157,7 @@ func (h *AdminHandler) Export(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/sql")
 		w.Header().Set("Content-Disposition", "attachment; filename=fitassist_export.sql")
 
-		// pg_dump is executed with the DATABASE_URL from environment
-		cmd := exec.CommandContext(r.Context(), "pg_dump", "--no-owner", "--no-acl")
+		cmd := exec.CommandContext(r.Context(), "pg_dump", "--no-owner", "--no-acl", h.dbDSN)
 		cmd.Stdout = w
 		if err := cmd.Run(); err != nil {
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("export failed: %v", err))

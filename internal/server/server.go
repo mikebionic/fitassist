@@ -98,18 +98,21 @@ func (s *Server) setupRoutes() {
 	s.TelegramRepo = telegramRepo
 	s.MiFitRepo = mifitRepo
 
-	// AI client
-	claudeClient := ai.NewClient(s.cfg.Claude)
+	// AI client (only if API key is configured)
+	var claudeClient *ai.Client
+	if s.cfg.Claude.APIKey != "" {
+		claudeClient = ai.NewClient(s.cfg.Claude)
+	}
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	healthHandler := handler.NewHealthHandler(healthService)
 	mifitHandler := handler.NewMiFitHandler(mifitService)
-	adminHandler := handler.NewAdminHandler(userRepo, telegramRepo, syncLogRepo, mifitRepo)
+	adminHandler := handler.NewAdminHandler(userRepo, telegramRepo, syncLogRepo, mifitRepo, s.cfg.Database.DSN())
 	aiHandler := handler.NewAIHandler(claudeClient, aiRepo, healthRepo)
 
 	// Create initial admin
-	go service.EnsureAdmin(context.Background(), userRepo, s.cfg.Admin)
+	service.EnsureAdmin(context.Background(), userRepo, s.cfg.Admin)
 
 	r := s.router
 

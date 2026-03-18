@@ -81,7 +81,9 @@ func (b *Bot) handleLink(ctx context.Context, tgBot *bot.Bot, update *models.Upd
 		return
 	}
 
+	b.linkMu.Lock()
 	b.linkSessions[chatID] = &linkSession{step: "email"}
+	b.linkMu.Unlock()
 	b.send(ctx, chatID, "🔗 Let's link your Mi Fitness account.\n\nPlease send your <b>Xiaomi email</b>:")
 }
 
@@ -93,7 +95,9 @@ func (b *Bot) handleDefault(ctx context.Context, tgBot *bot.Bot, update *models.
 	text := strings.TrimSpace(update.Message.Text)
 
 	// Check if we're in a link session
+	b.linkMu.Lock()
 	session, ok := b.linkSessions[chatID]
+	b.linkMu.Unlock()
 	if !ok {
 		return
 	}
@@ -108,7 +112,9 @@ func (b *Bot) handleDefault(ctx context.Context, tgBot *bot.Bot, update *models.
 		userID := b.getChatUserID(ctx, chatID)
 		if userID == "" {
 			b.send(ctx, chatID, "⚠️ Chat not approved.")
-			delete(b.linkSessions, chatID)
+			b.linkMu.Lock()
+		delete(b.linkSessions, chatID)
+		b.linkMu.Unlock()
 			return
 		}
 
@@ -125,7 +131,9 @@ func (b *Bot) handleDefault(ctx context.Context, tgBot *bot.Bot, update *models.
 			Password: text,
 		}
 		result, err := b.mifitSvc.Link(ctx, userID, req)
+		b.linkMu.Lock()
 		delete(b.linkSessions, chatID)
+		b.linkMu.Unlock()
 
 		if err != nil {
 			b.send(ctx, chatID, fmt.Sprintf("❌ Failed to link account: %s", err.Error()))

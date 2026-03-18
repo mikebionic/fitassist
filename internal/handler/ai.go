@@ -128,6 +128,10 @@ func (h *AIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 
 // SendMessage sends a message to Claude and returns the response (non-streaming).
 func (h *AIHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
+	if h.claude == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI assistant is not configured")
+		return
+	}
 	sessionID := chi.URLParam(r, "id")
 	userID := GetUserID(r)
 
@@ -192,6 +196,10 @@ func (h *AIHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 // Summary generates a quick AI health summary (no session needed).
 func (h *AIHandler) Summary(w http.ResponseWriter, r *http.Request) {
+	if h.claude == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI assistant is not configured")
+		return
+	}
 	userID := GetUserID(r)
 
 	healthCtx := ai.BuildHealthContext(r.Context(), h.healthRepo, userID)
@@ -232,6 +240,11 @@ type wsMessage struct {
 
 // WebSocketChat handles the WebSocket connection for streaming AI chat.
 func (h *AIHandler) WebSocketChat(w http.ResponseWriter, r *http.Request) {
+	if h.claude == nil {
+		http.Error(w, "AI assistant is not configured", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Extract auth from query param (WebSocket can't send custom headers)
 	tokenStr := r.URL.Query().Get("token")
 	if tokenStr == "" {

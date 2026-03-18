@@ -40,6 +40,20 @@ func main() {
 
 	slog.Info("starting FitAssist", "version", "0.1.0", "mode", cfg.Server.Mode)
 
+	// Validate required config
+	if cfg.Security.JWTSecret == "" {
+		slog.Error("security.jwt_secret is required — generate with: openssl rand -base64 32")
+		os.Exit(1)
+	}
+	if cfg.Security.EncryptionKey == "" {
+		slog.Error("security.encryption_key is required — generate with: openssl rand -hex 32")
+		os.Exit(1)
+	}
+	if len(cfg.Security.EncryptionKey) != 64 {
+		slog.Error("security.encryption_key must be 64 hex characters (32 bytes)")
+		os.Exit(1)
+	}
+
 	db, err := database.Connect(cfg.Database)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)

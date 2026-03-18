@@ -17,6 +17,8 @@ const summaryText = ref('')
 const summaryLoading = ref(false)
 
 let ws: WebSocket | null = null
+let wsRetries = 0
+const maxRetries = 10
 
 const sortedSessions = computed(() =>
   [...sessions.value].sort((a, b) =>
@@ -109,13 +111,19 @@ function connectWS() {
     }
   }
 
+  ws.onopen = () => {
+    wsRetries = 0
+  }
+
   ws.onclose = () => {
-    // Reconnect after 3 seconds
+    if (wsRetries >= maxRetries) return
+    const delay = Math.min(1000 * Math.pow(2, wsRetries), 30000)
+    wsRetries++
     setTimeout(() => {
       if (!ws || ws.readyState === WebSocket.CLOSED) {
         connectWS()
       }
-    }, 3000)
+    }, delay)
   }
 }
 

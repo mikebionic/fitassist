@@ -87,6 +87,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*To
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		slog.Warn("failed login attempt", "username", username)
 		return nil, nil, ErrInvalidCredentials
 	}
 
