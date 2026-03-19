@@ -85,6 +85,16 @@ func (s *SyncService) SyncAccount(ctx context.Context, acc *model.MiFitAccount) 
 	// If we have a stored token, use it
 	if acc.AuthToken != nil && *acc.AuthToken != "" {
 		client.SetAuth(*acc.AuthToken, ptrVal(acc.UserIDMi))
+
+		// Restore Xiaomi auth credentials if this is a Xiaomi account
+		if acc.AuthMethod == "xiaomi" && len(acc.XiaomiAuthData) > 0 {
+			xiaomiAuth, err := s.decryptXiaomiAuth(acc.XiaomiAuthData)
+			if err != nil {
+				slog.Warn("failed to restore Xiaomi auth, will re-authenticate", "error", err)
+			} else {
+				client.SetXiaomiAuth(xiaomiAuth)
+			}
+		}
 	} else {
 		// Need to re-authenticate
 		n, err := s.reAuth(ctx, acc, client)
@@ -163,7 +173,29 @@ func (s *SyncService) reAuth(ctx context.Context, acc *model.MiFitAccount, clien
 		return 0, fmt.Errorf("storing token: %w", err)
 	}
 
+	// Store Xiaomi auth credentials if applicable
+	if result.AuthMethod == "xiaomi" && result.XiaomiAuth != nil {
+		xiaomiJSON, _ := json.Marshal(result.XiaomiAuth)
+		encXiaomiAuth, err := crypto.Encrypt(xiaomiJSON, s.encKey)
+		if err == nil {
+			_ = s.mifitRepo.UpdateAuthMethod(ctx, acc.ID, "xiaomi", encXiaomiAuth)
+		}
+	}
+
 	return 0, nil
+}
+
+// decryptXiaomiAuth decrypts stored Xiaomi auth credentials.
+func (s *SyncService) decryptXiaomiAuth(encData []byte) (*mifit.XiaomiAuth, error) {
+	decrypted, err := crypto.Decrypt(encData, s.encKey)
+	if err != nil {
+		return nil, fmt.Errorf("decrypting xiaomi auth: %w", err)
+	}
+	var auth mifit.XiaomiAuth
+	if err := json.Unmarshal(decrypted, &auth); err != nil {
+		return nil, fmt.Errorf("parsing xiaomi auth: %w", err)
+	}
+	return &auth, nil
 }
 
 // syncBandData syncs steps, sleep, heart rate, SpO2, and stress data.

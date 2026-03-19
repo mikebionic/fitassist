@@ -3,12 +3,16 @@ package mifit
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 )
+
+// ErrNoData indicates the API returned no data for the requested range.
+var ErrNoData = errors.New("no data available")
 
 const (
 	// Zepp/Huami API endpoints (updated 2025)
@@ -54,9 +58,30 @@ func (c *Client) SetAuth(appToken, userIDMi string) {
 	c.userIDMi = userIDMi
 }
 
+// SetXiaomiAuth configures the client for Xiaomi API access.
+func (c *Client) SetXiaomiAuth(auth *XiaomiAuth) {
+	c.xiaomiAuth = auth
+	c.authMethod = "xiaomi"
+	c.appToken = auth.ServiceToken
+	c.userIDMi = auth.UserID
+}
+
 // IsAuthenticated returns true if the client has auth credentials.
 func (c *Client) IsAuthenticated() bool {
 	return c.appToken != "" && c.userIDMi != ""
+}
+
+// AuthMethod returns the authentication method ("zepp" or "xiaomi").
+func (c *Client) AuthMethod() string {
+	if c.authMethod == "" {
+		return "zepp"
+	}
+	return c.authMethod
+}
+
+// XiaomiAuthInfo returns the Xiaomi auth credentials, if set.
+func (c *Client) XiaomiAuthInfo() *XiaomiAuth {
+	return c.xiaomiAuth
 }
 
 // Token returns the current app token.
@@ -67,6 +92,11 @@ func (c *Client) Token() string {
 // UserID returns the Mi user ID.
 func (c *Client) UserID() string {
 	return c.userIDMi
+}
+
+// isXiaomi returns true if the client is authenticated via Xiaomi.
+func (c *Client) isXiaomi() bool {
+	return c.authMethod == "xiaomi" && c.xiaomiAuth != nil
 }
 
 // doRequest executes an authenticated request to the data API.
@@ -99,6 +129,9 @@ func (c *Client) doRequest(method, path string, params url.Values) ([]byte, erro
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusNoContent || (resp.StatusCode == http.StatusOK && len(body) == 0) {
+		return nil, ErrNoData
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}

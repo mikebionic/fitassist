@@ -1,6 +1,7 @@
 package mifit
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,14 +11,18 @@ import (
 // GetBandData fetches band data (steps, sleep, HR) for the given date range.
 // dates should be in "YYYY-MM-DD" format.
 func (c *Client) GetBandData(dates []string) (*BandDataResponse, error) {
-	params := url.Values{
-		"query_type": {"summary"},
-		"device_type": {"0"},
-		"userid":     {c.userIDMi},
-		"date_list":  {strings.Join(dates, ",")},
+	path := "/v1/data/band_data.json"
+	params := map[string]string{
+		"query_type":  "summary",
+		"device_type": "0",
+		"userid":      c.userIDMi,
+		"date_list":   strings.Join(dates, ","),
 	}
 
-	body, err := c.doRequest("GET", "/v1/data/band_data.json", params)
+	body, err := c.doDataRequest("GET", path, params)
+	if errors.Is(err, ErrNoData) {
+		return &BandDataResponse{Code: 1, Message: "ok"}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching band data: %w", err)
 	}
@@ -36,14 +41,18 @@ func (c *Client) GetBandData(dates []string) (*BandDataResponse, error) {
 
 // GetBandDataDetail fetches detailed band data (including HR binary data).
 func (c *Client) GetBandDataDetail(dates []string) (*BandDataResponse, error) {
-	params := url.Values{
-		"query_type": {"detail"},
-		"device_type": {"0"},
-		"userid":     {c.userIDMi},
-		"date_list":  {strings.Join(dates, ",")},
+	path := "/v1/data/band_data.json"
+	params := map[string]string{
+		"query_type":  "detail",
+		"device_type": "0",
+		"userid":      c.userIDMi,
+		"date_list":   strings.Join(dates, ","),
 	}
 
-	body, err := c.doRequest("GET", "/v1/data/band_data.json", params)
+	body, err := c.doDataRequest("GET", path, params)
+	if errors.Is(err, ErrNoData) {
+		return &BandDataResponse{Code: 1, Message: "ok"}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching band data detail: %w", err)
 	}
@@ -69,4 +78,20 @@ func GenerateDateList(from, to time.Time) []string {
 		current = current.AddDate(0, 0, 1)
 	}
 	return dates
+}
+
+// doDataRequest routes data API requests through the appropriate backend.
+// For Xiaomi auth, uses RC4-encrypted requests to hlth.io.mi.com.
+// For Zepp auth, uses standard apptoken-authenticated requests.
+func (c *Client) doDataRequest(method, path string, params map[string]string) ([]byte, error) {
+	if c.isXiaomi() {
+		return c.doXiaomiRequest(method, path, params)
+	}
+
+	// Convert to url.Values for standard Huami/Zepp request
+	urlParams := url.Values{}
+	for k, v := range params {
+		urlParams.Set(k, v)
+	}
+	return c.doRequest(method, path, urlParams)
 }

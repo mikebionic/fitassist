@@ -17,10 +17,10 @@ import (
 
 // XiaomiAuth holds Xiaomi session credentials needed for API calls.
 type XiaomiAuth struct {
-	UserID       string
-	CUserID      string
-	ServiceToken string
-	Ssecurity    string
+	UserID       string `json:"user_id"`
+	CUserID      string `json:"c_user_id"`
+	ServiceToken string `json:"service_token"`
+	Ssecurity    string `json:"ssecurity"`
 }
 
 // LoginXiaomi authenticates via Xiaomi account (3-step OAuth flow).
@@ -161,8 +161,10 @@ func (c *Client) LoginXiaomi(email, password string) (*AuthResult, error) {
 	c.authMethod = "xiaomi"
 
 	return &AuthResult{
-		AppToken:  serviceToken,
-		UserIDMi:  userIDStr,
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+		AppToken:   serviceToken,
+		UserIDMi:   userIDStr,
+		ExpiresAt:  time.Now().Add(30 * 24 * time.Hour),
+		AuthMethod: "xiaomi",
+		XiaomiAuth: c.xiaomiAuth,
 	}, nil
 }

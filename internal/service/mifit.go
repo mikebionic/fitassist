@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/mike/fitassist/internal/crypto"
@@ -80,6 +81,21 @@ func (s *MiFitService) Link(ctx context.Context, userID string, req LinkRequest)
 	// Store the token
 	if err := s.mifitRepo.UpdateToken(ctx, acc.ID, authResult.AppToken, authResult.UserIDMi); err != nil {
 		return nil, fmt.Errorf("storing token: %w", err)
+	}
+
+	// Store auth method and Xiaomi credentials if applicable
+	if authResult.AuthMethod == "xiaomi" && authResult.XiaomiAuth != nil {
+		xiaomiJSON, err := json.Marshal(authResult.XiaomiAuth)
+		if err != nil {
+			return nil, fmt.Errorf("serializing xiaomi auth: %w", err)
+		}
+		encXiaomiAuth, err := crypto.Encrypt(xiaomiJSON, s.encKey)
+		if err != nil {
+			return nil, fmt.Errorf("encrypting xiaomi auth: %w", err)
+		}
+		if err := s.mifitRepo.UpdateAuthMethod(ctx, acc.ID, "xiaomi", encXiaomiAuth); err != nil {
+			return nil, fmt.Errorf("storing auth method: %w", err)
+		}
 	}
 
 	return &LinkResult{

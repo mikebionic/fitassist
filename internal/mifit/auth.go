@@ -14,9 +14,11 @@ import (
 
 // AuthResult contains the result of a successful authentication.
 type AuthResult struct {
-	AppToken  string
-	UserIDMi  string
-	ExpiresAt time.Time
+	AppToken   string
+	UserIDMi   string
+	ExpiresAt  time.Time
+	AuthMethod string      // "zepp" or "xiaomi"
+	XiaomiAuth *XiaomiAuth // set when AuthMethod == "xiaomi"
 }
 
 // Login authenticates with Mi Fitness using email and password.
@@ -26,6 +28,7 @@ func (c *Client) Login(email, password string) (*AuthResult, error) {
 	result, err := c.loginZepp(email, password)
 	if err == nil {
 		c.authMethod = "zepp"
+		result.AuthMethod = "zepp"
 		slog.Info("Mi Fitness login via Zepp succeeded", "user_id", result.UserIDMi)
 		return result, nil
 	}

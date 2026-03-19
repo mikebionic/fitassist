@@ -1,18 +1,22 @@
 package mifit
 
 import (
+	"errors"
 	"fmt"
-	"net/url"
 )
 
 // GetWorkoutHistory fetches the list of all workouts.
 func (c *Client) GetWorkoutHistory() (*WorkoutHistoryResponse, error) {
-	params := url.Values{
-		"source":  {"run.band"},
-		"userid":  {c.userIDMi},
+	path := "/v1/sport/run/history.json"
+	params := map[string]string{
+		"source": "run.band",
+		"userid": c.userIDMi,
 	}
 
-	body, err := c.doRequest("GET", "/v1/sport/run/history.json", params)
+	body, err := c.doDataRequest("GET", path, params)
+	if errors.Is(err, ErrNoData) {
+		return &WorkoutHistoryResponse{Code: 1, Message: "ok"}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching workout history: %w", err)
 	}
@@ -31,13 +35,17 @@ func (c *Client) GetWorkoutHistory() (*WorkoutHistoryResponse, error) {
 
 // GetWorkoutDetail fetches detailed data for a specific workout.
 func (c *Client) GetWorkoutDetail(trackID int64) (*WorkoutDetailResponse, error) {
-	params := url.Values{
-		"source":  {"run.band"},
-		"userid":  {c.userIDMi},
-		"trackid": {fmt.Sprintf("%d", trackID)},
+	path := "/v1/sport/run/detail.json"
+	params := map[string]string{
+		"source":  "run.band",
+		"userid":  c.userIDMi,
+		"trackid": fmt.Sprintf("%d", trackID),
 	}
 
-	body, err := c.doRequest("GET", "/v1/sport/run/detail.json", params)
+	body, err := c.doDataRequest("GET", path, params)
+	if errors.Is(err, ErrNoData) {
+		return &WorkoutDetailResponse{Code: 1, Message: "ok"}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching workout detail: %w", err)
 	}

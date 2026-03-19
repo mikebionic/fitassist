@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 )
@@ -25,7 +24,7 @@ func (c *Client) doXiaomiRequest(method, path string, params map[string]string) 
 		return nil, fmt.Errorf("deriving key: %w", err)
 	}
 
-	// Encrypt each param value
+	// Encrypt each param value with a fresh RC4 cipher
 	rc4Enc, err := makeRC4Drop1024(rc4KeyB64)
 	if err != nil {
 		return nil, err
@@ -35,20 +34,10 @@ func (c *Client) doXiaomiRequest(method, path string, params map[string]string) 
 		encParams[k] = base64.StdEncoding.EncodeToString(rc4Enc.crypt([]byte(v)))
 	}
 
-	// Sign: SHA1("METHOD&path&k1=v1&k2=v2&rc4key")
-	parts := []string{strings.ToUpper(method), path}
-	keys := make([]string, 0, len(encParams))
-	for k := range encParams {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		parts = append(parts, fmt.Sprintf("%s=%s", k, encParams[k]))
-	}
-	parts = append(parts, rc4KeyB64)
+	// Generate SHA1 signature over encrypted params
 	signature := sha1Sign(method, path, encParams, rc4KeyB64)
 
-	// Build query
+	// Build query with encrypted params + nonce + signature
 	query := url.Values{}
 	for k, v := range encParams {
 		query.Set(k, v)
@@ -92,7 +81,10 @@ func (c *Client) doXiaomiRequest(method, path string, params map[string]string) 
 	if resp.StatusCode == 401 {
 		return nil, fmt.Errorf("authentication expired, please re-link your account")
 	}
-	if resp.StatusCode != 200 || len(body) == 0 {
+	if resp.StatusCode == 204 || (resp.StatusCode == 200 && len(body) == 0) {
+		return nil, ErrNoData
+	}
+	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("API error status %d: %s", resp.StatusCode, truncate(string(body), 200))
 	}
 

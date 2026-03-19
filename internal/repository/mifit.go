@@ -44,6 +44,13 @@ func (r *MiFitRepository) UpdateToken(ctx context.Context, id string, token stri
 	return err
 }
 
+func (r *MiFitRepository) UpdateAuthMethod(ctx context.Context, id string, authMethod string, xiaomiAuthData []byte) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE mifit_accounts SET auth_method = $1, xiaomi_auth_data = $2 WHERE id = $3`,
+		authMethod, xiaomiAuthData, id)
+	return err
+}
+
 func (r *MiFitRepository) UpdateLastSync(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx,
 		"UPDATE mifit_accounts SET last_sync = now() WHERE id = $1", id)

@@ -16,16 +16,18 @@ type User struct {
 }
 
 type MiFitAccount struct {
-	ID           string     `db:"id" json:"id"`
-	UserID       string     `db:"user_id" json:"user_id"`
-	MiEmail      string     `db:"mi_email" json:"mi_email"`
-	MiPassword   []byte     `db:"mi_password" json:"-"`
-	AuthToken    *string    `db:"auth_token" json:"-"`
-	UserIDMi     *string    `db:"user_id_mi" json:"user_id_mi,omitempty"`
-	TokenExpires *time.Time `db:"token_expires" json:"-"`
-	LastSync     *time.Time `db:"last_sync" json:"last_sync,omitempty"`
-	SyncEnabled  bool       `db:"sync_enabled" json:"sync_enabled"`
-	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	ID              string     `db:"id" json:"id"`
+	UserID          string     `db:"user_id" json:"user_id"`
+	MiEmail         string     `db:"mi_email" json:"mi_email"`
+	MiPassword      []byte     `db:"mi_password" json:"-"`
+	AuthToken       *string    `db:"auth_token" json:"-"`
+	UserIDMi        *string    `db:"user_id_mi" json:"user_id_mi,omitempty"`
+	TokenExpires    *time.Time `db:"token_expires" json:"-"`
+	LastSync        *time.Time `db:"last_sync" json:"last_sync,omitempty"`
+	SyncEnabled     bool       `db:"sync_enabled" json:"sync_enabled"`
+	AuthMethod      string     `db:"auth_method" json:"auth_method"`
+	XiaomiAuthData  []byte     `db:"xiaomi_auth_data" json:"-"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 }
 
 type TelegramChat struct {
