@@ -39,6 +39,34 @@ async function toggleUserActive(user: any) {
   } catch (e) { console.error(e) }
 }
 
+async function approveChat(id: number) {
+  try {
+    await adminApi.updateChat(id, { is_approved: true })
+    await loadChats()
+  } catch (e) { console.error(e) }
+}
+
+async function unapproveChat(id: number) {
+  try {
+    await adminApi.updateChat(id, { is_approved: false })
+    await loadChats()
+  } catch (e) { console.error(e) }
+}
+
+async function blockChat(id: number) {
+  try {
+    await adminApi.updateChat(id, { is_blocked: true })
+    await loadChats()
+  } catch (e) { console.error(e) }
+}
+
+async function unblockChat(id: number) {
+  try {
+    await adminApi.updateChat(id, { is_blocked: false })
+    await loadChats()
+  } catch (e) { console.error(e) }
+}
+
 async function exportDB(format: string) {
   try {
     const { data } = await adminApi.exportDB(format)
@@ -104,7 +132,7 @@ function fmtDate(d: string) {
       </div>
       <table v-else class="data-table">
         <thead>
-          <tr><th>Chat ID</th><th>Username</th><th>Name</th><th>Status</th><th>Created</th></tr>
+          <tr><th>Chat ID</th><th>Username</th><th>Name</th><th>Status</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <tr v-for="c in chats" :key="c.id">
@@ -117,6 +145,12 @@ function fmtDate(d: string) {
               <span v-else style="color: var(--warning)">Pending</span>
             </td>
             <td>{{ fmtDate(c.created_at) }}</td>
+            <td style="display: flex; gap: 0.25rem; flex-wrap: wrap">
+              <button v-if="!c.is_approved && !c.is_blocked" class="btn-sm btn-approve" @click="approveChat(c.id)">Approve</button>
+              <button v-if="c.is_approved" class="btn-sm" @click="unapproveChat(c.id)">Revoke</button>
+              <button v-if="!c.is_blocked" class="btn-sm btn-danger" @click="blockChat(c.id)">Block</button>
+              <button v-if="c.is_blocked" class="btn-sm" @click="unblockChat(c.id)">Unblock</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -224,6 +258,10 @@ function fmtDate(d: string) {
   font-size: 0.75rem;
 }
 .btn-sm:hover { background: var(--border); }
+.btn-sm.btn-approve { background: rgba(34, 197, 94, 0.15); color: var(--success); border-color: var(--success); }
+.btn-sm.btn-approve:hover { background: rgba(34, 197, 94, 0.3); }
+.btn-sm.btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: var(--danger); }
+.btn-sm.btn-danger:hover { background: rgba(239, 68, 68, 0.3); }
 
 .btn-secondary {
   padding: 0.5rem 1rem;

@@ -10,14 +10,16 @@ import (
 )
 
 type Scheduler struct {
-	cron    *cron.Cron
-	syncSvc *service.SyncService
+	cron     *cron.Cron
+	syncSvc  *service.SyncService
+	notifSvc *service.NotificationService
 }
 
-func NewScheduler(syncSvc *service.SyncService) *Scheduler {
+func NewScheduler(syncSvc *service.SyncService, notifSvc *service.NotificationService) *Scheduler {
 	return &Scheduler{
-		cron:    cron.New(),
-		syncSvc: syncSvc,
+		cron:     cron.New(),
+		syncSvc:  syncSvc,
+		notifSvc: notifSvc,
 	}
 }
 
@@ -31,6 +33,17 @@ func (s *Scheduler) Start(intervalMinutes int) error {
 	})
 	if err != nil {
 		return fmt.Errorf("adding cron job: %w", err)
+	}
+
+	// Hourly notification check
+	if s.notifSvc != nil {
+		_, err := s.cron.AddFunc("@hourly", func() {
+			slog.Info("cron: checking scheduled notifications")
+			s.notifSvc.CheckScheduled(context.Background())
+		})
+		if err != nil {
+			return fmt.Errorf("adding notification cron job: %w", err)
+		}
 	}
 
 	s.cron.Start()

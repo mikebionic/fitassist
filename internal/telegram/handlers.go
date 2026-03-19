@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,14 +41,38 @@ func (b *Bot) handleStart(ctx context.Context, tgBot *bot.Bot, update *models.Up
 		name = msg.From.FirstName
 	}
 
-	b.send(ctx, chatID, fmt.Sprintf(
-		`👋 Hi <b>%s</b>! Welcome to <b>FitAssist</b>.
+	// Auto-approve: find the first admin user and link this chat
+	approved := false
+	users, err := b.userRepo.List(ctx, 10, 0)
+	if err == nil && len(users) > 0 {
+		// Link to the first admin user (or first user if no admin)
+		linkUserID := users[0].ID
+		for _, u := range users {
+			if u.Role == "admin" {
+				linkUserID = u.ID
+				break
+			}
+		}
+		if err := b.chatRepo.Approve(ctx, chat.ID, linkUserID); err == nil {
+			approved = true
+		}
+	}
 
-I'm your AI health assistant. I can show you data from your Mi Fitness account.
+	if approved {
+		b.send(ctx, chatID, fmt.Sprintf(
+			`👋 Hi <b>%s</b>! Welcome to <b>FitAssist</b>.
 
-⏳ Your chat is <b>pending approval</b> by the admin. Once approved, you'll be able to use all commands.
+✅ Your chat has been <b>automatically approved</b>.
+
+Use /link to connect your Mi Fitness account, or /help to see all commands.`, name))
+	} else {
+		b.send(ctx, chatID, fmt.Sprintf(
+			`👋 Hi <b>%s</b>! Welcome to <b>FitAssist</b>.
+
+⏳ Your chat is <b>pending approval</b>. Please try /start again in a moment.
 
 Use /help to see available commands.`, name))
+	}
 }
 
 func (b *Bot) handleHelp(ctx context.Context, tgBot *bot.Bot, update *models.Update) {
@@ -65,6 +90,7 @@ func (b *Bot) handleHelp(ctx context.Context, tgBot *bot.Bot, update *models.Upd
 /hr — Heart rate info
 /workout — Last workout
 /sync — Trigger data sync
+/notify — Notification settings
 /ai &lt;question&gt; — Ask AI about your health
 /help — Show this help`)
 }
@@ -443,6 +469,240 @@ func (b *Bot) handleWorkout(ctx context.Context, tgBot *bot.Bot, update *models.
 		formatDuration(dur),
 		formatDistance(dist),
 		cal, avgHR, maxHR))
+}
+
+var dayNames = map[string]int{
+	"sun": 0, "sunday": 0,
+	"mon": 1, "monday": 1,
+	"tue": 2, "tuesday": 2,
+	"wed": 3, "wednesday": 3,
+	"thu": 4, "thursday": 4,
+	"fri": 5, "friday": 5,
+	"sat": 6, "saturday": 6,
+}
+
+var dayLabels = []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+
+func (b *Bot) handleNotify(ctx context.Context, tgBot *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
+	chatID := update.Message.Chat.ID
+	userID := b.getChatUserID(ctx, chatID)
+
+	if userID == "" {
+		b.send(ctx, chatID, "⚠️ Chat not approved or not linked to a user.")
+		return
+	}
+
+	if b.notifSvc == nil {
+		b.send(ctx, chatID, "⚠️ Notifications are not configured.")
+		return
+	}
+
+	args := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, "/notify"))
+
+	// No args — show current settings
+	if args == "" {
+		prefs, err := b.notifSvc.GetPreferences(ctx, userID)
+		if err != nil {
+			b.send(ctx, chatID, "❌ Failed to load notification settings.")
+			return
+		}
+		b.send(ctx, chatID, formatNotifySettings(prefs))
+		return
+	}
+
+	parts := strings.Fields(args)
+	cmd := strings.ToLower(parts[0])
+
+	switch cmd {
+	case "daily":
+		b.handleNotifyDaily(ctx, chatID, userID, parts[1:])
+	case "weekly":
+		b.handleNotifyWeekly(ctx, chatID, userID, parts[1:])
+	case "workout":
+		b.handleNotifyToggle(ctx, chatID, userID, "workout", parts[1:])
+	case "sleep":
+		b.handleNotifyToggle(ctx, chatID, userID, "sleep", parts[1:])
+	default:
+		b.send(ctx, chatID, `<b>Usage:</b>
+/notify — Show current settings
+/notify daily HH:MM — Enable daily summary at given hour
+/notify daily off — Disable daily summary
+/notify weekly Mon HH:MM — Enable weekly on given day
+/notify weekly off — Disable weekly summary
+/notify workout on|off — Toggle workout notifications
+/notify sleep on|off — Toggle sleep notifications`)
+	}
+}
+
+func (b *Bot) handleNotifyDaily(ctx context.Context, chatID int64, userID string, args []string) {
+	if len(args) == 0 {
+		b.send(ctx, chatID, "Usage: /notify daily HH:MM or /notify daily off")
+		return
+	}
+
+	prefs, err := b.notifSvc.GetPreferences(ctx, userID)
+	if err != nil {
+		b.send(ctx, chatID, "❌ Failed to load settings.")
+		return
+	}
+
+	if strings.ToLower(args[0]) == "off" {
+		prefs.DailyEnabled = false
+		if err := b.notifSvc.UpdatePreferences(ctx, prefs); err != nil {
+			b.send(ctx, chatID, "❌ Failed to update settings.")
+			return
+		}
+		b.send(ctx, chatID, "✅ Daily summary <b>disabled</b>.")
+		return
+	}
+
+	hour, err := parseHour(args[0])
+	if err != nil {
+		b.send(ctx, chatID, "❌ Invalid time. Use HH:MM format (e.g., 09:00).")
+		return
+	}
+
+	prefs.DailyEnabled = true
+	prefs.DailyHour = int16(hour)
+	if err := b.notifSvc.UpdatePreferences(ctx, prefs); err != nil {
+		b.send(ctx, chatID, "❌ Failed to update settings.")
+		return
+	}
+	b.send(ctx, chatID, fmt.Sprintf("✅ Daily summary <b>enabled</b> at %02d:00.", hour))
+}
+
+func (b *Bot) handleNotifyWeekly(ctx context.Context, chatID int64, userID string, args []string) {
+	if len(args) == 0 {
+		b.send(ctx, chatID, "Usage: /notify weekly Mon HH:MM or /notify weekly off")
+		return
+	}
+
+	prefs, err := b.notifSvc.GetPreferences(ctx, userID)
+	if err != nil {
+		b.send(ctx, chatID, "❌ Failed to load settings.")
+		return
+	}
+
+	if strings.ToLower(args[0]) == "off" {
+		prefs.WeeklyEnabled = false
+		if err := b.notifSvc.UpdatePreferences(ctx, prefs); err != nil {
+			b.send(ctx, chatID, "❌ Failed to update settings.")
+			return
+		}
+		b.send(ctx, chatID, "✅ Weekly summary <b>disabled</b>.")
+		return
+	}
+
+	if len(args) < 2 {
+		b.send(ctx, chatID, "Usage: /notify weekly Mon HH:MM")
+		return
+	}
+
+	day, ok := dayNames[strings.ToLower(args[0])]
+	if !ok {
+		b.send(ctx, chatID, "❌ Invalid day. Use: Mon, Tue, Wed, Thu, Fri, Sat, Sun.")
+		return
+	}
+
+	hour, err := parseHour(args[1])
+	if err != nil {
+		b.send(ctx, chatID, "❌ Invalid time. Use HH:MM format (e.g., 09:00).")
+		return
+	}
+
+	prefs.WeeklyEnabled = true
+	prefs.WeeklyDay = int16(day)
+	prefs.WeeklyHour = int16(hour)
+	if err := b.notifSvc.UpdatePreferences(ctx, prefs); err != nil {
+		b.send(ctx, chatID, "❌ Failed to update settings.")
+		return
+	}
+	b.send(ctx, chatID, fmt.Sprintf("✅ Weekly summary <b>enabled</b> on %s at %02d:00.", dayLabels[day], hour))
+}
+
+func (b *Bot) handleNotifyToggle(ctx context.Context, chatID int64, userID string, notifType string, args []string) {
+	if len(args) == 0 {
+		b.send(ctx, chatID, fmt.Sprintf("Usage: /notify %s on|off", notifType))
+		return
+	}
+
+	prefs, err := b.notifSvc.GetPreferences(ctx, userID)
+	if err != nil {
+		b.send(ctx, chatID, "❌ Failed to load settings.")
+		return
+	}
+
+	val := strings.ToLower(args[0])
+	enabled := val == "on" || val == "true" || val == "yes"
+
+	switch notifType {
+	case "workout":
+		prefs.WorkoutEnabled = enabled
+	case "sleep":
+		prefs.SleepEnabled = enabled
+	}
+
+	if err := b.notifSvc.UpdatePreferences(ctx, prefs); err != nil {
+		b.send(ctx, chatID, "❌ Failed to update settings.")
+		return
+	}
+
+	status := "disabled"
+	if enabled {
+		status = "enabled"
+	}
+	b.send(ctx, chatID, fmt.Sprintf("✅ %s notifications <b>%s</b>.", strings.Title(notifType), status))
+}
+
+func formatNotifySettings(prefs *model.NotificationPreferences) string {
+	daily := "off"
+	if prefs.DailyEnabled {
+		daily = fmt.Sprintf("on, at %02d:00", prefs.DailyHour)
+	}
+	weekly := "off"
+	if prefs.WeeklyEnabled {
+		day := "Mon"
+		if int(prefs.WeeklyDay) < len(dayLabels) {
+			day = dayLabels[prefs.WeeklyDay]
+		}
+		weekly = fmt.Sprintf("on, %s at %02d:00", day, prefs.WeeklyHour)
+	}
+	workout := "off"
+	if prefs.WorkoutEnabled {
+		workout = "on"
+	}
+	sleep := "off"
+	if prefs.SleepEnabled {
+		sleep = "on"
+	}
+
+	return fmt.Sprintf(`🔔 <b>Notification Settings</b>
+
+📊 Daily summary: <b>%s</b>
+📈 Weekly summary: <b>%s</b>
+🏋️ Workout analysis: <b>%s</b>
+😴 Sleep analysis: <b>%s</b>
+
+<b>Commands:</b>
+/notify daily HH:MM — Enable daily
+/notify daily off — Disable daily
+/notify weekly Mon HH:MM — Enable weekly
+/notify weekly off — Disable weekly
+/notify workout on|off
+/notify sleep on|off`, daily, weekly, workout, sleep)
+}
+
+func parseHour(s string) (int, error) {
+	// Accept "HH:MM" or just "HH"
+	parts := strings.Split(s, ":")
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		return 0, fmt.Errorf("invalid hour")
+	}
+	return hour, nil
 }
 
 func (b *Bot) handleSync(ctx context.Context, tgBot *bot.Bot, update *models.Update) {

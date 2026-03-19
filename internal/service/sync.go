@@ -14,11 +14,17 @@ import (
 )
 
 type SyncService struct {
-	healthRepo  *repository.HealthRepository
-	mifitRepo   *repository.MiFitRepository
-	syncLogRepo *repository.SyncLogRepository
-	apiBaseURL  string
-	encKey      string
+	healthRepo   *repository.HealthRepository
+	mifitRepo    *repository.MiFitRepository
+	syncLogRepo  *repository.SyncLogRepository
+	apiBaseURL   string
+	encKey       string
+	postSyncHook func(ctx context.Context, userID string)
+}
+
+// SetPostSyncHook sets a callback that runs after each successful account sync.
+func (s *SyncService) SetPostSyncHook(fn func(ctx context.Context, userID string)) {
+	s.postSyncHook = fn
 }
 
 func NewSyncService(
@@ -149,6 +155,11 @@ func (s *SyncService) SyncAccount(ctx context.Context, acc *model.MiFitAccount) 
 	_ = s.mifitRepo.UpdateLastSync(ctx, acc.ID)
 
 	slog.Info("sync completed", "user_id", acc.UserID, "records", totalRecords)
+
+	if s.postSyncHook != nil {
+		go s.postSyncHook(context.Background(), acc.UserID)
+	}
+
 	return syncErr
 }
 

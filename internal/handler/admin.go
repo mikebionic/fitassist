@@ -110,17 +110,39 @@ func (h *AdminHandler) UpdateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.IsApproved != nil && *req.IsApproved && req.UserID != nil {
-		if err := h.telegramRepo.Approve(r.Context(), id, *req.UserID); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to approve chat")
-			return
+	if req.IsApproved != nil {
+		if *req.IsApproved {
+			// Approve: if no user_id provided, use the requesting admin's ID
+			userID := ""
+			if req.UserID != nil {
+				userID = *req.UserID
+			} else {
+				userID = GetUserID(r)
+			}
+			if err := h.telegramRepo.Approve(r.Context(), id, userID); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to approve chat")
+				return
+			}
+		} else {
+			// Unapprove
+			if err := h.telegramRepo.Unapprove(r.Context(), id); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to unapprove chat")
+				return
+			}
 		}
 	}
 
-	if req.IsBlocked != nil && *req.IsBlocked {
-		if err := h.telegramRepo.Block(r.Context(), id); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to block chat")
-			return
+	if req.IsBlocked != nil {
+		if *req.IsBlocked {
+			if err := h.telegramRepo.Block(r.Context(), id); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to block chat")
+				return
+			}
+		} else {
+			if err := h.telegramRepo.Unblock(r.Context(), id); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to unblock chat")
+				return
+			}
 		}
 	}
 

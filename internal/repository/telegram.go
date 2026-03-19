@@ -60,9 +60,21 @@ func (r *TelegramRepository) Approve(ctx context.Context, id int64, userID strin
 	return err
 }
 
+func (r *TelegramRepository) Unapprove(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE telegram_chats SET is_approved = false, user_id = NULL WHERE id = $1", id)
+	return err
+}
+
 func (r *TelegramRepository) Block(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx,
 		"UPDATE telegram_chats SET is_blocked = true WHERE id = $1", id)
+	return err
+}
+
+func (r *TelegramRepository) Unblock(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE telegram_chats SET is_blocked = false WHERE id = $1", id)
 	return err
 }
 

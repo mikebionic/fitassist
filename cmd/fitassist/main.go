@@ -12,7 +12,9 @@ import (
 	"github.com/mike/fitassist/internal/config"
 	cronpkg "github.com/mike/fitassist/internal/cron"
 	"github.com/mike/fitassist/internal/database"
+	"github.com/mike/fitassist/internal/repository"
 	"github.com/mike/fitassist/internal/server"
+	"github.com/mike/fitassist/internal/service"
 	"github.com/mike/fitassist/internal/telegram"
 )
 
@@ -71,20 +73,27 @@ func main() {
 
 	srv := server.New(cfg, db)
 
-	// Start cron scheduler for Mi Fitness sync
-	var scheduler *cronpkg.Scheduler
-	if cfg.MiFit.SyncIntervalMinutes > 0 {
-		scheduler = cronpkg.NewScheduler(srv.SyncService())
-		if err := scheduler.Start(cfg.MiFit.SyncIntervalMinutes); err != nil {
-			slog.Error("failed to start cron scheduler", "error", err)
-		}
-	}
-
 	// AI client (shared between HTTP handlers and Telegram bot)
 	var aiClient *ai.Client
 	if cfg.Claude.APIKey != "" {
 		aiClient = ai.NewClient(cfg.Claude)
 		slog.Info("AI assistant enabled", "model", cfg.Claude.Model)
+	}
+
+	// Notification service
+	notifRepo := repository.NewNotificationRepository(srv.DB())
+	notifSvc := service.NewNotificationService(notifRepo, srv.HealthRepo, srv.TelegramRepo, aiClient)
+
+	// Set post-sync hook to trigger notifications
+	srv.SyncService().SetPostSyncHook(notifSvc.OnPostSync)
+
+	// Start cron scheduler for Mi Fitness sync
+	var scheduler *cronpkg.Scheduler
+	if cfg.MiFit.SyncIntervalMinutes > 0 {
+		scheduler = cronpkg.NewScheduler(srv.SyncService(), notifSvc)
+		if err := scheduler.Start(cfg.MiFit.SyncIntervalMinutes); err != nil {
+			slog.Error("failed to start cron scheduler", "error", err)
+		}
 	}
 
 	// Start Telegram bot
@@ -97,9 +106,11 @@ func main() {
 			srv.MiFitRepo,
 			srv.MiFitService(),
 			srv.SyncService(),
+			notifSvc,
 			aiClient,
 			cfg.Security.EncryptionKey,
 		)
+		notifSvc.SetSendFunc(tgBot.SendToChat)
 		go func() {
 			if err := tgBot.Start(ctx); err != nil {
 				slog.Error("telegram bot error", "error", err)

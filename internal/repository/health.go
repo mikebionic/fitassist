@@ -209,6 +209,30 @@ func (r *HealthRepository) GetStress(ctx context.Context, userID string, from, t
 	return stress, err
 }
 
+// GetLatestWorkout returns the most recent workout for a user.
+func (r *HealthRepository) GetLatestWorkout(ctx context.Context, userID string) (*model.HealthWorkout, error) {
+	var w model.HealthWorkout
+	err := r.db.GetContext(ctx, &w,
+		`SELECT * FROM health_workouts WHERE user_id = $1 ORDER BY started_at DESC LIMIT 1`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	return &w, nil
+}
+
+// GetLatestSleep returns the most recent sleep record for a user.
+func (r *HealthRepository) GetLatestSleep(ctx context.Context, userID string) (*model.HealthSleep, error) {
+	var s model.HealthSleep
+	err := r.db.GetContext(ctx, &s,
+		`SELECT * FROM health_sleep WHERE user_id = $1 ORDER BY date DESC LIMIT 1`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 // Dashboard summary
 
 type DashboardSummary struct {

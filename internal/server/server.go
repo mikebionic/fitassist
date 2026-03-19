@@ -43,6 +43,11 @@ func (s *Server) MiFitService() *service.MiFitService {
 	return s.mifitService
 }
 
+// DB returns the database connection for creating additional repositories.
+func (s *Server) DB() *sqlx.DB {
+	return s.db
+}
+
 func New(cfg *config.Config, db *sqlx.DB) *Server {
 	r := chi.NewRouter()
 

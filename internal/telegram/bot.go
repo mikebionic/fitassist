@@ -24,6 +24,7 @@ type Bot struct {
 	mifitRepo    *repository.MiFitRepository
 	mifitSvc     *service.MiFitService
 	syncSvc      *service.SyncService
+	notifSvc     *service.NotificationService
 	aiClient       *ai.Client
 	encKey         string
 	linkMu         sync.Mutex
@@ -43,6 +44,7 @@ func New(
 	mifitRepo *repository.MiFitRepository,
 	mifitSvc *service.MiFitService,
 	syncSvc *service.SyncService,
+	notifSvc *service.NotificationService,
 	aiClient *ai.Client,
 	encKey string,
 ) *Bot {
@@ -54,6 +56,7 @@ func New(
 		mifitRepo:    mifitRepo,
 		mifitSvc:     mifitSvc,
 		syncSvc:      syncSvc,
+		notifSvc:     notifSvc,
 		aiClient:     aiClient,
 		encKey:       encKey,
 		linkSessions: make(map[int64]*linkSession),
@@ -78,6 +81,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/sleep", bot.MatchTypePrefix, b.handleSleep)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/hr", bot.MatchTypePrefix, b.handleHR)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/workout", bot.MatchTypePrefix, b.handleWorkout)
+	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/notify", bot.MatchTypePrefix, b.handleNotify)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypePrefix, b.handleHelp)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/sync", bot.MatchTypePrefix, b.handleSync)
 	b.bot.RegisterHandler(bot.HandlerTypeMessageText, "/ai", bot.MatchTypePrefix, b.handleAI)

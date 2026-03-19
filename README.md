@@ -2,6 +2,8 @@
 
 Self-hosted AI health assistant that connects to Mi Fitness (Xiaomi/Amazfit wearables), stores your health data, and provides AI-powered analysis and recommendations.
 
+![FitAssist Dashboard](docs/dashboard.webp)
+
 ## Features
 
 - **Mi Fitness Integration** — Syncs steps, sleep, heart rate, SpO2, stress, and workouts from your Mi Band/Amazfit device via the Huami API
@@ -9,6 +11,7 @@ Self-hosted AI health assistant that connects to Mi Fitness (Xiaomi/Amazfit wear
 - **AI Assistant** — Chat with Claude AI about your health data, get personalized recommendations (WebSocket streaming)
 - **Telegram Bot** — View data, trigger syncs, and ask AI questions directly from Telegram
 - **Multi-user** — JWT authentication, admin panel, Telegram chat approval flow
+- **Smart Notifications** — AI-powered post-workout and sleep analysis via Telegram, configurable daily/weekly health summaries
 - **Auto-sync** — Configurable cron scheduler pulls data automatically
 - **Data Export** — PostgreSQL dump from the admin panel
 - **Docker Ready** — Multi-stage Dockerfile, docker-compose for one-command deployment
@@ -288,6 +291,7 @@ Here's a checklist of what to prepare:
 | `/hr` | Heart rate info |
 | `/workout` | Last workout details |
 | `/sync` | Trigger data sync |
+| `/notify` | Notification settings (daily/weekly summaries, workout/sleep analysis) |
 | `/ai <question>` | Ask AI about your health |
 | `/help` | Show commands |
 
