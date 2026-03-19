@@ -1,32 +1,41 @@
 package mifit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
 const (
-	authBaseURL    = "https://api-user.huami.com"
-	accountBaseURL = "https://account.huami.com"
+	// Zepp/Huami API endpoints (updated 2025)
+	authBaseURL    = "https://api-user-us2.zepp.com"
+	loginBaseURL   = "https://api-mifit-us2.zepp.com"
 
-	appName    = "com.xiaomi.hm.health"
+	appName    = "com.huami.midong"
 	clientID   = "HuaMi"
-	appVersion = "6.3.5"
+	appVersion = "9.12.5"
+	buildVer   = "202509151347"
 
-	userAgent = "MiFit/6.3.5 (Linux; Android 12)"
+	userAgentApp = "Zepp/9.12.5 (Pixel 4; Android 12; Density/2.75)"
+	userAgentWeb = "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
+
+	// AES-CBC encryption params for token request payload
+	zeppEncKey = "xeNtBVqzDc6tuNTh"
+	zeppEncIV  = "MAAAYAAAAAAAAABg"
 )
 
 // Client interacts with the Mi Fitness (Huami/Zepp) API.
 type Client struct {
-	httpClient *http.Client
-	baseURL    string // data API base URL (region-specific)
-	appToken   string
-	userIDMi   string
+	httpClient  *http.Client
+	baseURL     string // data API base URL (region-specific)
+	appToken    string
+	userIDMi    string
+	authMethod  string       // "zepp" or "xiaomi"
+	xiaomiAuth  *XiaomiAuth  // set when using Xiaomi login
 }
 
 // NewClient creates a new Mi Fitness API client.
@@ -76,7 +85,7 @@ func (c *Client) doRequest(method, path string, params url.Values) ([]byte, erro
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", userAgentApp)
 	req.Header.Set("apptoken", c.appToken)
 
 	resp, err := c.httpClient.Do(req)
@@ -97,15 +106,20 @@ func (c *Client) doRequest(method, path string, params url.Values) ([]byte, erro
 	return body, nil
 }
 
-// doFormPost executes a POST with form data.
-func doFormPost(client *http.Client, reqURL string, form url.Values, headers map[string]string) ([]byte, error) {
-	req, err := http.NewRequest("POST", reqURL, strings.NewReader(form.Encode()))
+// postResponse holds the HTTP response data we care about.
+type postResponse struct {
+	Body       []byte
+	StatusCode int
+	Location   string // redirect Location header, if any
+}
+
+// doPost executes a POST with raw body bytes and custom headers.
+func doPost(client *http.Client, reqURL string, bodyData []byte, headers map[string]string) (*postResponse, error) {
+	req, err := http.NewRequest("POST", reqURL, bytes.NewReader(bodyData))
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", userAgent)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -121,7 +135,26 @@ func doFormPost(client *http.Client, reqURL string, form url.Values, headers map
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
-	return body, nil
+	return &postResponse{
+		Body:       body,
+		StatusCode: resp.StatusCode,
+		Location:   resp.Header.Get("Location"),
+	}, nil
+}
+
+// doFormPost executes a POST with form-encoded data.
+func doFormPost(client *http.Client, reqURL string, form url.Values, headers map[string]string) ([]byte, error) {
+	h := map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+	}
+	for k, v := range headers {
+		h[k] = v
+	}
+	resp, err := doPost(client, reqURL, []byte(form.Encode()), h)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
 }
 
 // parseJSON is a helper to unmarshal JSON response.

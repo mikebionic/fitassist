@@ -31,3 +31,6 @@ web/dist/
 *.sql.bak
 *.dump
 /data/
+
+# Local plans/notes
+plan.md
