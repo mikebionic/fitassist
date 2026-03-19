@@ -6,15 +6,15 @@ Self-hosted AI health assistant that connects to Mi Fitness (Xiaomi/Amazfit wear
 
 ## Features
 
-- **Mi Fitness Integration** — Syncs steps, sleep, heart rate, SpO2, stress, and workouts from your Mi Band/Amazfit device via the Huami API
-- **Web Dashboard** — Vue 3 frontend with interactive charts for all health metrics
-- **AI Assistant** — Chat with Claude AI about your health data, get personalized recommendations (WebSocket streaming)
-- **Telegram Bot** — View data, trigger syncs, and ask AI questions directly from Telegram
-- **Multi-user** — JWT authentication, admin panel, Telegram chat approval flow
-- **Smart Notifications** — AI-powered post-workout and sleep analysis via Telegram, configurable daily/weekly health summaries
-- **Auto-sync** — Configurable cron scheduler pulls data automatically
-- **Data Export** — PostgreSQL dump from the admin panel
-- **Docker Ready** — Multi-stage Dockerfile, docker-compose for one-command deployment
+- **Mi Fitness Integration** -Syncs steps, sleep, heart rate, SpO2, stress, and workouts from your Mi Band/Amazfit device via the Huami API
+- **Web Dashboard** -Vue 3 frontend with interactive charts for all health metrics
+- **AI Assistant** -Chat with Claude AI about your health data, get personalized recommendations (WebSocket streaming)
+- **Telegram Bot** -View data, trigger syncs, and ask AI questions directly from Telegram
+- **Multi-user** -JWT authentication, admin panel, Telegram chat approval flow
+- **Smart Notifications** -AI-powered post-workout and sleep analysis via Telegram, configurable daily/weekly health summaries
+- **Auto-sync** -Configurable cron scheduler pulls data automatically
+- **Data Export** -PostgreSQL dump from the admin panel
+- **Docker Ready** -Multi-stage Dockerfile, docker-compose for one-command deployment
 
 ## Tech Stack
 
@@ -62,9 +62,9 @@ fitassist/
 - **Go 1.25+**
 - **Node.js 20+** (for frontend build)
 - **PostgreSQL 16** (or Docker)
-- **Mi Fitness account** — you need a Xiaomi account linked to the Mi Fitness app
-- **Claude API key** (optional) — for AI assistant features
-- **Telegram Bot Token** (optional) — for Telegram integration
+- **Mi Fitness account** -you need a Xiaomi account linked to the Mi Fitness app
+- **Claude API key** (optional) -for AI assistant features
+- **Telegram Bot Token** (optional) -for Telegram integration
 
 ## Quick Start (Local Development)
 
@@ -79,7 +79,7 @@ cd web && npm install && cd ..
 
 ### 2. Start PostgreSQL
 
-Option A — Docker (recommended):
+Option A -Docker (recommended):
 ```bash
 docker run -d --name fitassist-pg \
   -e POSTGRES_DB=fitassist \
@@ -89,7 +89,7 @@ docker run -d --name fitassist-pg \
   postgres:16-alpine
 ```
 
-Option B — Use docker-compose dev file:
+Option B -Use docker-compose dev file:
 ```bash
 docker compose -f deployments/docker-compose.dev.yml up -d
 ```
@@ -113,8 +113,8 @@ Edit `config/config.json` with your values:
     "password": "devpassword"
   },
   "security": {
-    "jwt_secret": "",      // REQUIRED — see below
-    "encryption_key": ""   // REQUIRED — see below
+    "jwt_secret": "",      // REQUIRED -see below
+    "encryption_key": ""   // REQUIRED -see below
   },
   "admin": {
     "initial_username": "admin",
@@ -171,7 +171,7 @@ cp .env.example .env
 ### 2. Edit `.env` with your production values
 
 ```bash
-# REQUIRED — you must set these:
+# REQUIRED -you must set these:
 DB_PASSWORD=your-strong-db-password
 JWT_SECRET=your-random-secret-at-least-32-characters-long
 ENCRYPTION_KEY=<output of: openssl rand -hex 32>
@@ -190,8 +190,8 @@ docker compose up -d
 ```
 
 This starts:
-- **app** — Go backend + Vue frontend on port 8080
-- **postgres** — PostgreSQL 16 with persistent data volume
+- **app** -Go backend + Vue frontend on port 8080
+- **postgres** -PostgreSQL 16 with persistent data volume
 
 The app auto-migrates the database and creates the initial admin user on first start.
 
@@ -199,43 +199,17 @@ The app auto-migrates the database and creates the initial admin user on first s
 
 Open `http://your-server:8080` and log in.
 
-## Configuration Reference
-
-Configuration is loaded with priority: **environment variables > config.json > defaults**.
-
-| Setting | Env Var | Default | Description |
-|---------|---------|---------|-------------|
-| `server.port` | `SERVER_PORT` | `8080` | HTTP port |
-| `server.mode` | `SERVER_MODE` | `development` | `development` or `production` |
-| `database.host` | `DB_HOST` | `localhost` | PostgreSQL host |
-| `database.port` | `DB_PORT` | `5432` | PostgreSQL port |
-| `database.name` | `DB_NAME` | `fitassist` | Database name |
-| `database.user` | `DB_USER` | `fitassist` | Database user |
-| `database.password` | `DB_PASSWORD` | — | Database password |
-| `database.auto_migrate` | `DB_AUTO_MIGRATE` | `true` | Run migrations on startup |
-| `security.jwt_secret` | `JWT_SECRET` | — | **Required.** JWT signing key |
-| `security.encryption_key` | `ENCRYPTION_KEY` | — | **Required.** AES-256 key (hex, 64 chars) |
-| `security.cors_origins` | — | `["http://localhost:5173"]` | Allowed CORS origins |
-| `admin.initial_username` | `ADMIN_USERNAME` | `admin` | First admin username |
-| `admin.initial_password` | `ADMIN_PASSWORD` | — | First admin password |
-| `claude.api_key` | `CLAUDE_API_KEY` | — | Anthropic API key |
-| `claude.model` | `CLAUDE_MODEL` | `claude-sonnet-4-5-20250929` | Claude model |
-| `claude.max_tokens` | `CLAUDE_MAX_TOKENS` | `4096` | Max response tokens |
-| `telegram.enabled` | `TELEGRAM_ENABLED` | `false` | Enable Telegram bot |
-| `telegram.bot_token` | `TELEGRAM_BOT_TOKEN` | — | Bot token from @BotFather |
-| `mifit.sync_interval_minutes` | `MIFIT_SYNC_INTERVAL` | `30` | Auto-sync interval (0 = disabled) |
-
 ## What You Need Before Running
 
 Here's a checklist of what to prepare:
 
-1. **PostgreSQL database** — either via Docker or an existing server
-2. **JWT secret** — generate with `openssl rand -base64 32`
-3. **Encryption key** — generate with `openssl rand -hex 32`
-4. **Admin password** — choose a password for the initial admin account
-5. **Mi Fitness account** (for health data) — your Xiaomi/Mi account email and password
-6. **Claude API key** (optional, for AI features) — sign up at [console.anthropic.com](https://console.anthropic.com)
-7. **Telegram Bot Token** (optional) — create a bot via [@BotFather](https://t.me/BotFather)
+1. **PostgreSQL database** -either via Docker or an existing server
+2. **JWT secret** -generate with `openssl rand -base64 32`
+3. **Encryption key** -generate with `openssl rand -hex 32`
+4. **Admin password** -choose a password for the initial admin account
+5. **Mi Fitness account** (for health data) -your Xiaomi/Mi account email and password
+6. **Claude API key** (optional, for AI features) -sign up at [console.anthropic.com](https://console.anthropic.com)
+7. **Telegram Bot Token** (optional) -create a bot via [@BotFather](https://t.me/BotFather)
 
 ## API Endpoints
 
